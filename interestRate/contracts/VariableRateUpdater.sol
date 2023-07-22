@@ -17,6 +17,12 @@ interface ATokenLike {
     function totalSupply() external view returns (uint256);
 }
 
+/**
+ * @title VariableRateUpdater
+ * @author Khaled G. 
+ * @notice VariableRateUpdater, this contract is the keeper that will keep track of the utilization rate (usage ratio) for a given asset and
+ * update the slope for a given interest rate strategy.
+ */
 
 contract VariableRateUpdater is AutomationCompatibleInterface {
     using WadRayMath for uint256;

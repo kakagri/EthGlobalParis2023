@@ -1,4 +1,4 @@
-// SPD-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import { IDefaultInterestRateStrategy } from '@aave-v3/contracts/interfaces/IDefaultInterestRateStrategy.sol';
@@ -10,6 +10,19 @@ import { IDefaultInterestRateStrategy } from '@aave-v3/contracts/interfaces/IDef
  * @notice Defines the interface of the DynamicRateStrategy
  */
 interface IDynamicRateStrategy is IDefaultInterestRateStrategy {
+    
+    /**
+     * @notice Returns the VariableRateUpdater in charge of adjusting the variable rate slope 1
+     * @return Returns an address
+     */
+    function getVariableRateUpdater() external view returns (address);
+
+    /**
+     * @notice Sets the variable rate updater address
+     * @dev Only callable by pool configurator
+     * @param variableRateUpdater Variable rate updater address
+     */
+    function setVariableRateUpdater(address variableRateUpdater) external;
 
     /**
      * @notice Returns whether an address is a ward, i.e. has permissions
@@ -61,5 +74,4 @@ interface IDynamicRateStrategy is IDefaultInterestRateStrategy {
     function setMMinus(
         uint256 mMinus
     ) external;
-
 }
