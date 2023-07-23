@@ -153,6 +153,7 @@ contract DynamicRateStrategy is IDynamicRateStrategy {
   function setVariableRateUpdater(address variableRateUpdater) external onlyPoolConfigurator {
     wards[_variableRateUpdater] = false;
     wards[variableRateUpdater] = true;
+    _variableRateUpdater = variableRateUpdater;
   }
 
   /// @inheritdoc IDynamicRateStrategy

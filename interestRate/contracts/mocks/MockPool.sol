@@ -12,9 +12,40 @@ contract MockPool {
 
     function setReserveData(
         address asset,
-        DataTypes.ReserveData memory params
+        uint256 configuration,
+        uint128 liquidityIndex,
+        uint128 currentLiquidityRate,
+        uint128 variableBorrowIndex,
+        uint128 currentStableBorrowRate,
+        uint40 lastUpdateTimestamp
     ) external {
-        reserves[asset] = params;
+        reserves[asset].configuration = DataTypes.ReserveConfigurationMap({data: configuration});
+        reserves[asset].liquidityIndex = liquidityIndex;
+        reserves[asset].currentLiquidityRate = currentLiquidityRate;
+        reserves[asset].variableBorrowIndex = variableBorrowIndex;
+        reserves[asset].currentStableBorrowRate = currentStableBorrowRate;
+        reserves[asset].lastUpdateTimestamp = lastUpdateTimestamp;
+    }
+
+    function setReserveData2(
+        address asset,
+        uint16 id,
+        address aTokenAddress,
+        address stableDebtTokenAddress,
+        address variableDebtTokenAddress,
+        address interestRateStrategyAddress,
+        uint128 accruedToTreasury,
+        uint128 unbacked,
+        uint128 isolationModeTotalDebt
+    ) external {
+        reserves[asset].id = id;
+        reserves[asset].aTokenAddress = aTokenAddress;
+        reserves[asset].stableDebtTokenAddress = stableDebtTokenAddress;
+        reserves[asset].variableDebtTokenAddress = variableDebtTokenAddress;
+        reserves[asset].interestRateStrategyAddress = interestRateStrategyAddress;
+        reserves[asset].accruedToTreasury = accruedToTreasury;
+        reserves[asset].unbacked = unbacked;
+        reserves[asset].isolationModeTotalDebt = isolationModeTotalDebt;
     }
 
     function getReserveData(
