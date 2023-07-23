@@ -3,3 +3,4 @@ compiler:
         remappings:
           - "@aave-v3=aave/aave-v3-core@1.19.1"
           - "@chainlink=smartcontractkit/chainlink@2.2.0/contracts/src/v0.8"
+dotenv: scripts/.env
