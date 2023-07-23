@@ -2,6 +2,8 @@
 
 **Author:** Khaled G.
 
+****************Contact:**************** tg: @khaledgrira, twitter: @iamkakagri
+
 **Description:** This is an implementation  of a dynamic interest rate strategy, an experiment towards reducing the spreads in CDPs, it’s applied to **sDAI** on ****************************Spark Protocol**************************** and uses **Chainlink Automation** to permissionlessly and automatically update the rates.
 
 **********************Motivation:**********************
@@ -97,3 +99,51 @@ The focus on ********sDAI******** is coming from the fact that it is entranched 
 We fork main net, unfreeze the **sDAI** reserve on **********Spark**********, change the interest rate strategy to our DynamicRateStrategy and deploy a VariableRateUpdater. We make ********sDAI******** collateral but also **********************borrowable**********************, the reason we make ************************sDAI************************ borrowable is twofold: the first, sure if it’s not borrowable it doesn’t make sense to have an interest rate strategy, but second is that **********sDAI********** being borrowable is **good and healthy** for the Maker ecosystem. 
 
 **Depositors can earn extra yield on their sDAI’s yield and operators can hedge their incoming cash flows in a decentralized and permissionless way by borrowing sDAI and exchanging it directly against DAI on Spark.**
+
+**********************************Closing thoughts:**********************************
+
+I started this afternoon yesterday afternoon, this morning after having 6 coffees and 1 redbull here are my thoughts on it all, take it with a grain of salt, I’m sleep deprived and full of nicotine.
+
+First the code is pretty much stitched together, lacks optimizations, there’s some issues in the production thing, some authorization stuff that needs to be added in the contract calls. This stems from the fact that the code base that needs to be assimilated to do this is pretty complex, and hard to do properly in 1 night. 
+
+Assuming the same model for the dynamic rate there is a lot of ways the Upkeep Contract can be made better, obviously, some authorization stuff needs to be added in there for example, otherwise we’re making assumptions on who’s making the call, also the account of the utilization is approximate.
+
+On the model itself, I think it’s a good toy model that can be implemented in a couple hours and be tested but not the best, only looking at utilization is not really good. One other avenue could be considering another curve, not just the two slopes but one that’s flat around the optimal ratio might make more sense. The model that’s used has a lot of edge scenarios that are weird that I can’t get into since it’s 7:55 AM, questions about manipulation and so on.
+
+**************Anyways************** it’s a really interesting topic so if you know a DAO that’s willing to fund that research dm me (contact above).
+
+**********************HOW TO RUN:**********************
+
+To run this repo you need to install a few packages with eth-brownie
+
+Install brownie, for this see: 
+
+[Installing Brownie — Brownie 1.19.3 documentation](https://eth-brownie.readthedocs.io/en/stable/install.html)
+
+change directory to be in EthGlobalParis2023/interestRate
+
+Install the Aave and Chainlink libraries
+
+```jsx
+brownie pm install aave/aave-v3-core@1.19.1
+brownie pm install smartcontractkit/chainlink@2.2.0
+```
+
+Setup your EtherScan and Infura tokens in interestRate/scripts/.env
+
+```jsx
+ETHERSCAN_TOKEN=
+WEB3_INFURA_PROJECT_ID=
+```
+
+Run tests, it deploys a dynamic rate strategy and a variable rate updater and makes them work and checks the results.
+
+```jsx
+brownie test
+```
+
+Fork Mainnet and make SDAI borrowable on Spark, and make the interest rates dynamic
+
+```jsx
+brownie run scripts/use_in_production.py --network mainnet-fork
+```
