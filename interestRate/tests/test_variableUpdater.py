@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pytest
 import brownie
 import time
+from eth_abi import decode
 from brownie import (
     accounts,
     Contract,
@@ -63,7 +64,7 @@ ISOLATION_MODE_DEBT = 0
 # utilization history that's pyramid shaped, the average utilization is 45%
 
 UTILIZATION_HISTORY = [(60-k)*10**25 for k in range(30)] + [(30+k)*10**25 for k in range(30)]
-
+UTILIZATION_HISTORY_2 = [80*10**25]*60
 
 def deploy_mock_addresses_provider(
     deployer_account
@@ -175,9 +176,10 @@ class ReserveDataParams:
 
 
 
+#is_utilization_history_1 -> so we can test both cases, when the average is over and under
 
 @pytest.fixture
-def env_dynamic_rate():
+def env_dynamic_rate_1():
     deployer_account = accounts[0]
 
     mocks = deploy_mocks(deployer_account)
@@ -263,16 +265,104 @@ def env_dynamic_rate():
     }
 
 
-def test_constants(env_dynamic_rate):
+@pytest.fixture
+def env_dynamic_rate_2():
     deployer_account = accounts[0]
-    addresses_provider = env_dynamic_rate["AddressesProvider"]
-    pool = env_dynamic_rate["Pool"]
-    dynamic_rate_strategy = env_dynamic_rate["DynamicRateStrategy"]
-    token = env_dynamic_rate["Token"]
-    a_token = env_dynamic_rate["AToken"]
-    variable_debt_token = env_dynamic_rate["VariableDebtToken"]
-    stable_debt_token = env_dynamic_rate["StableDebtToken"]
-    variable_rate_updater = env_dynamic_rate["VariableRateUpdater"]
+
+    mocks = deploy_mocks(deployer_account)
+
+    pool = mocks["Pool"]
+    addresses_provider = mocks["AddressesProvider"]
+
+    dynamic_rate_strategy = deploy_rate_strategy(
+        mocks,
+        deployer_account
+    )
+
+    token = deploy_mock_erc20(deployer_account)
+
+    a_token = deploy_mock_erc20(deployer_account)
+    variable_debt_token = deploy_mock_erc20(deployer_account)
+    stable_debt_token = deploy_mock_erc20(deployer_account)
+
+    # set the placeholder variables for the reserve data
+
+    reserve_data_params = ReserveDataParams(
+        CONFIGURATION,
+        LIQUIDITY_INDEX,
+        CURRENT_LIQUIDITY_RATE,
+        VARIABLE_BORROW_INDEX,
+        CURRENT_VARIABLE_BORROW_RATE,
+        CURRENT_STABLE_BORROW_RATE,
+        LAST_UPDATE_TIMESTAMP,
+        ID,
+        a_token.address,
+        stable_debt_token.address,
+        variable_debt_token.address,
+        dynamic_rate_strategy.address,
+        ACCRUED_TO_TREASURY,
+        UNBACKED,
+        ISOLATION_MODE_DEBT
+    )
+
+    pool.setReserveData(
+        token.address,
+        reserve_data_params.configuration,
+        reserve_data_params.liquidityIndex,
+        reserve_data_params.currentLiquidityRate,
+        reserve_data_params.variableBorrowIndex,
+        reserve_data_params.currentStableBorrowRate,
+        reserve_data_params.lastUpdateTimestamp,
+        {"from": deployer_account}
+    )
+    pool.setReserveData2(
+        token.address,
+        reserve_data_params.id,
+        reserve_data_params.aTokenAddress,
+        reserve_data_params.stableDebtTokenAddress,
+        reserve_data_params.variableDebtTokenAddress,
+        reserve_data_params.interestRateStrategyAddress,
+        reserve_data_params.accruedToTreasury,
+        reserve_data_params.unbacked,
+        reserve_data_params.isolationModeTotalDebt,
+        {"from": deployer_account}
+    )
+
+    variable_rate_updater = VariableRateUpdater.deploy(
+        addresses_provider,
+        token,
+        UTILIZATION_HISTORY_2,
+        {"from": deployer_account}
+    )
+
+    dynamic_rate_strategy.setVariableRateUpdater(
+        variable_rate_updater.address,
+        {"from": deployer_account}
+    )
+
+    return {
+        "AddressesProvider": addresses_provider,
+        "Pool": pool,
+        "DynamicRateStrategy": dynamic_rate_strategy,
+        "Token": token,
+        "AToken": a_token,
+        "VariableDebtToken": variable_debt_token,
+        "StableDebtToken": stable_debt_token,
+        "VariableRateUpdater": variable_rate_updater
+    }
+
+
+
+def test_constants(env_dynamic_rate_1):
+    deployer_account = accounts[0]
+    addresses_provider = env_dynamic_rate_1["AddressesProvider"]
+    pool = env_dynamic_rate_1["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_1["DynamicRateStrategy"]
+    token = env_dynamic_rate_1["Token"]
+    a_token = env_dynamic_rate_1["AToken"]
+    variable_debt_token = env_dynamic_rate_1["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_1["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_1["VariableRateUpdater"]
 
     assert variable_rate_updater.INTERVAL() == 12*60*60 # 12 hours expressed in seconds
     assert variable_rate_updater.WINDOW() == 60 # the length on which we look at the utilization rates -> 30 days measured with an upkeep every 12 hours
@@ -287,17 +377,17 @@ def test_constants(env_dynamic_rate):
 
 
 def test_mock_erc_manip(
-    env_dynamic_rate
+    env_dynamic_rate_1
 ):
     deployer_account = accounts[0]
-    addresses_provider = env_dynamic_rate["AddressesProvider"]
-    pool = env_dynamic_rate["Pool"]
-    dynamic_rate_strategy = env_dynamic_rate["DynamicRateStrategy"]
-    token = env_dynamic_rate["Token"]
-    a_token = env_dynamic_rate["AToken"]
-    variable_debt_token = env_dynamic_rate["VariableDebtToken"]
-    stable_debt_token = env_dynamic_rate["StableDebtToken"]
-    variable_rate_updater = env_dynamic_rate["VariableRateUpdater"]
+    addresses_provider = env_dynamic_rate_1["AddressesProvider"]
+    pool = env_dynamic_rate_1["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_1["DynamicRateStrategy"]
+    token = env_dynamic_rate_1["Token"]
+    a_token = env_dynamic_rate_1["AToken"]
+    variable_debt_token = env_dynamic_rate_1["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_1["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_1["VariableRateUpdater"]
 
     token.setTotalSupply(109_030_318, {"from": deployer_account})
 
@@ -310,16 +400,16 @@ def test_time_manipulation():
     new_time = chain.time()
     assert new_time - chain_time == 12_000
 
-def test_check_upkeep(env_dynamic_rate):
+def test_check_upkeep_1(env_dynamic_rate_1):
     deployer_account = accounts[0]
-    addresses_provider = env_dynamic_rate["AddressesProvider"]
-    pool = env_dynamic_rate["Pool"]
-    dynamic_rate_strategy = env_dynamic_rate["DynamicRateStrategy"]
-    token = env_dynamic_rate["Token"]
-    a_token = env_dynamic_rate["AToken"]
-    variable_debt_token = env_dynamic_rate["VariableDebtToken"]
-    stable_debt_token = env_dynamic_rate["StableDebtToken"]
-    variable_rate_updater = env_dynamic_rate["VariableRateUpdater"]
+    addresses_provider = env_dynamic_rate_1["AddressesProvider"]
+    pool = env_dynamic_rate_1["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_1["DynamicRateStrategy"]
+    token = env_dynamic_rate_1["Token"]
+    a_token = env_dynamic_rate_1["AToken"]
+    variable_debt_token = env_dynamic_rate_1["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_1["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_1["VariableRateUpdater"]
 
 
     upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
@@ -333,9 +423,59 @@ def test_check_upkeep(env_dynamic_rate):
     upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
     assert upkeep_needed
 
+    new_slope = decode(['uint256'], data)[0]
+
+    # The average utilization is 0.45 which is under the lower bound of the sweet spot
+    expected_slope = int(dynamic_rate_strategy.getVariableRateSlope1())*int(dynamic_rate_strategy.getMMinus())//10_000
+    assert new_slope == expected_slope
+
+def test_check_upkeep_2(env_dynamic_rate_2):
+    deployer_account = accounts[0]
+    addresses_provider = env_dynamic_rate_2["AddressesProvider"]
+    pool = env_dynamic_rate_2["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_2["DynamicRateStrategy"]
+    token = env_dynamic_rate_2["Token"]
+    a_token = env_dynamic_rate_2["AToken"]
+    variable_debt_token = env_dynamic_rate_2["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_2["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_2["VariableRateUpdater"]
+
+
+    upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
+    assert not(upkeep_needed)
+    chain.sleep(12*60*60 - 2)
+    chain.mine(1)
+    upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
+    assert not(upkeep_needed)
+    chain.sleep(3)
+    chain.mine(1)
+    upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
+    assert upkeep_needed
+
+    new_slope = decode(['uint256'], data)[0]
+
+    # The average utilization is 0.45 which is under the lower bound of the sweet spot
+    avg_utilization = sum(UTILIZATION_HISTORY_2)//60
+    multiple = 10**27 + avg_utilization + EPSILON - OPTIMAL_USAGE_RATIO
+    expected_slope = int(dynamic_rate_strategy.getVariableRateSlope1())*int(dynamic_rate_strategy.getMPlus())//10_000*multiple // 10**27
+    
+    assert new_slope == expected_slope
+
+def test_perform_upkeep(env_dynamic_rate_1):
+    deployer_account = accounts[0]
+    addresses_provider = env_dynamic_rate_1["AddressesProvider"]
+    pool = env_dynamic_rate_1["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_1["DynamicRateStrategy"]
+    token = env_dynamic_rate_1["Token"]
+    a_token = env_dynamic_rate_1["AToken"]
+    variable_debt_token = env_dynamic_rate_1["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_1["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_1["VariableRateUpdater"]
 
 
 
+
+    
 
 
 
