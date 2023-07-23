@@ -449,14 +449,17 @@ def test_check_upkeep_2(env_dynamic_rate_2):
     assert not(upkeep_needed)
     chain.sleep(3)
     chain.mine(1)
+    
     upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
     assert upkeep_needed
 
     new_slope = decode(['uint256'], data)[0]
 
-    # The average utilization is 0.45 which is under the lower bound of the sweet spot
+    # The average utilization in this scenario is 80% which is close to our optimal utilization and well into the sweet spot, the slope1 should increase by:
+    # slope1 = slope1 * mPlus* (1 + avg(Utilization) - (UOptimal - Epsilon)) see the notion page for the formula
     avg_utilization = sum(UTILIZATION_HISTORY_2)//60
     multiple = 10**27 + avg_utilization + EPSILON - OPTIMAL_USAGE_RATIO
+    # This is the expected new slope 
     expected_slope = int(dynamic_rate_strategy.getVariableRateSlope1())*int(dynamic_rate_strategy.getMPlus())//10_000*multiple // 10**27
     
     assert new_slope == expected_slope
@@ -471,6 +474,100 @@ def test_perform_upkeep(env_dynamic_rate_1):
     variable_debt_token = env_dynamic_rate_1["VariableDebtToken"]
     stable_debt_token = env_dynamic_rate_1["StableDebtToken"]
     variable_rate_updater = env_dynamic_rate_1["VariableRateUpdater"]
+
+    # we're going to manipulate the total supplies of the yield bearing tokens
+
+    # 100 a tokens expressed in ray
+    a_token.setTotalSupply(100* 10**27, {"from": deployer_account})
+
+    # 30 variable debt tokens expressed in ray
+    variable_debt_token.setTotalSupply(30 * 10**27, {"from": deployer_account})
+    
+    # 0 stable debt
+    stable_debt_token.setTotalSupply(0, {"from": deployer_account})
+
+    # The artificial usage as a result of these fake balances should be 30%
+
+
+    # move time so upkeep is needed 
+    chain.sleep(12*60*61)
+    chain.mine(1)
+
+    # This is the slope that we expect, in this scenario the average utilization is under the sweet pot so we are going
+    # to reduce the slope of the variable rate slope1 = slope1 * mMinus
+    expected_slope = int(dynamic_rate_strategy.getVariableRateSlope1())*int(dynamic_rate_strategy.getMMinus())//10_000
+    
+    # This is the result from the UpkeepContract, it should return a boolean saying whether an upkeep is needed
+    # and the resulting slope1
+
+    upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
+
+    # Since we moved the chain forward an upkeep should be needed
+    assert upkeep_needed
+
+    # Get the slope recommended by the upkeep by decoding the bytes
+    new_slope_recommended_by_upkeep = decode(['uint256'], data)[0]
+
+    # Perform the Upkeep with the data resulting from checkUpkeep
+    variable_rate_updater.performUpkeep(data, {"from": deployer_account})
+
+    # Get the new slope 1 of the dynamicRateStrategy
+    dynamic_rate_slope_1 = dynamic_rate_strategy.getVariableRateSlope1()
+
+    # Check that the slop given by checkUpkeep corresponds with what we expect
+    assert expected_slope == new_slope_recommended_by_upkeep
+
+    # Check that the UpkeepContract has updated the slope of the dynamicRateStrategy
+    assert dynamic_rate_slope_1 == new_slope_recommended_by_upkeep
+
+    # Now we check that the utilization rate of 30% has been cached in the variableRateUpdater A.K.A the UpkeepContract
+    # the counter when the Upkeep was performed was 0
+    assert variable_rate_updater.utilizationHistory(0) == 30*10**25
+
+    # Check that the counter has been incremented
+    assert variable_rate_updater.counter() == 1
+
+
+def test_perform_upkeep_2(env_dynamic_rate_2):
+    deployer_account = accounts[0]
+    addresses_provider = env_dynamic_rate_2["AddressesProvider"]
+    pool = env_dynamic_rate_2["Pool"]
+    dynamic_rate_strategy = env_dynamic_rate_2["DynamicRateStrategy"]
+    token = env_dynamic_rate_2["Token"]
+    a_token = env_dynamic_rate_2["AToken"]
+    variable_debt_token = env_dynamic_rate_2["VariableDebtToken"]
+    stable_debt_token = env_dynamic_rate_2["StableDebtToken"]
+    variable_rate_updater = env_dynamic_rate_2["VariableRateUpdater"]
+
+    # we're going to manipulate the total supplies of the yield bearing tokens
+
+    # 100 a tokens expressed in ray
+    a_token.setTotalSupply(100* 10**27, {"from": deployer_account})
+
+    # 30 variable debt tokens expressed in ray
+    variable_debt_token.setTotalSupply(30 * 10**27, {"from": deployer_account})
+    
+    # 0 stable debt
+    stable_debt_token.setTotalSupply(0, {"from": deployer_account})
+
+    # the artificial usage should now be 30%
+    # move time so upkeep is needed 
+    chain.sleep(12*60*61)
+    chain.mine(1)
+
+    avg_utilization = sum(UTILIZATION_HISTORY_2)//60
+    multiple = 10**27 + avg_utilization + EPSILON - OPTIMAL_USAGE_RATIO
+    expected_slope = int(dynamic_rate_strategy.getVariableRateSlope1())*int(dynamic_rate_strategy.getMPlus())//10_000*multiple // 10**27
+    
+    upkeep_needed, data = variable_rate_updater.checkUpkeep("", {"from": deployer_account})
+    assert upkeep_needed
+    new_slope_recommended_by_upkeep = decode(['uint256'], data)[0]
+    variable_rate_updater.performUpkeep(data, {"from": deployer_account})
+
+    dynamic_rate_slope_1 = dynamic_rate_strategy.getVariableRateSlope1()
+    assert expected_slope == new_slope_recommended_by_upkeep
+
+    assert dynamic_rate_slope_1 == new_slope_recommended_by_upkeep
 
 
 
