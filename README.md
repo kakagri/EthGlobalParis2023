@@ -100,6 +100,8 @@ We fork main net, unfreeze the **sDAI** reserve on **********Spark**********, ch
 
 **Depositors can earn extra yield on their sDAI’s yield and operators can hedge their incoming cash flows in a decentralized and permissionless way by borrowing sDAI and exchanging it directly against DAI on Spark.**
 
+[added thoughts]: okay I have to admit the sDAI use was a little bit of bs, I was trying to farm that prize on top of Spark's :).
+
 **********************************Closing thoughts:**********************************
 
 I started this afternoon yesterday afternoon, this morning after having 6 coffees and 1 redbull here are my thoughts on it all, take it with a grain of salt, I’m sleep deprived and full of nicotine.
